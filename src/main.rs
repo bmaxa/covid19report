@@ -87,10 +87,11 @@ async fn get_response(url:String)->String {
         let client = reqwest::Client::builder()
             .user_agent("rust")
             .build().unwrap();
-        let response =client.get(&url).send().await.unwrap(); 
+        let response =client.get(&url).send().await.unwrap();
         let rest = response.headers()["X-RateLimit-Remaining"].to_str().unwrap().parse::<i32>().unwrap();
+        let date = chrono::NaiveDateTime::from_timestamp(response.headers()["X-RateLimit-Reset"].to_str().unwrap().parse::<i64>().unwrap(),0);
         let body = response.text().await.unwrap();
-        println!("rest: {}",rest);
+        println!("rest: {} available: {}",rest,date);
         if rest != 0 { return body; }
         println!("{}",body);
         let millis = std::time::Duration::from_secs(60);
