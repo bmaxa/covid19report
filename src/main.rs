@@ -1,4 +1,3 @@
-#![feature(try_blocks)]
 extern crate serde_json;
 extern crate reqwest;
 extern crate base64;
