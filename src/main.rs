@@ -20,9 +20,9 @@ fn main() {
 fn get_list()->impl Future<Output = std::result::Result<Vec<Value>,reqwest::Error>> {
     async {
         let url  = "https://api.github.com/repos/cssegisanddata/covid-19/contents/csse_covid_19_data/csse_covid_19_daily_reports".to_string();
-        let response = get_response(url);
-        let body = response.await.text().await?;
-        let parsed:Value = serde_json::from_str(body.as_str()).unwrap();
+        let body = get_response(url);
+        let body = body.await;
+        let parsed:Value = serde_json::from_str(&body).unwrap();
         let mut rc = Vec::new();
         for names in parsed.as_array().unwrap() {
             rc.push(names["name"].clone());
@@ -36,9 +36,9 @@ fn parse_files(args:Vec<Value>)->impl Future<Output = std::result::Result<Value,
         let mut map = serde_json::Map::new();
         for name in args {
             let url ="https://api.github.com/repos/cssegisanddata/covid-19/contents/csse_covid_19_data/csse_covid_19_daily_reports".to_string() + "/" + name.as_str().unwrap();
-            let response = get_response(url);
-            let body = response.await.text().await?;
-            match serde_json::from_str(body.as_str()) {
+            let body = get_response(url);
+            let body = body.await;
+            match serde_json::from_str(&body) {
                 Ok(body) => {
                     let a:Value = body;
                     let d = a["name"].as_str().unwrap().split('.').collect::<Vec<_>>()[0];
@@ -82,16 +82,18 @@ fn vec2string(v:Vec<u8>)->String{
     std::str::from_utf8(&v).unwrap().to_string()
 }
 
-async fn get_response(url:String)->reqwest::Response {
-   let client = reqwest::Client::builder()
+async fn get_response(url:String)->String {
+    loop {
+        let client = reqwest::Client::builder()
             .user_agent("rust")
             .build().unwrap();
-    loop {
         let response =client.get(&url).send().await.unwrap(); 
         let rest = response.headers()["X-RateLimit-Remaining"].to_str().unwrap().parse::<i32>().unwrap();
+        let body = response.text().await.unwrap();
         println!("rest: {}",rest);
-        if rest != 0 { return response; }
-        let millis = std::time::Duration::from_secs(1);
+        if rest != 0 { return body; }
+        println!("{}",body);
+        let millis = std::time::Duration::from_secs(60);
         std::thread::sleep(millis);
     }
 }
