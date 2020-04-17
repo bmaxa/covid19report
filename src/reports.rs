@@ -191,15 +191,16 @@ fn display_stats(data:Value,opts:&Options){
             }
         }
     }
-    key_data[0].1.sort_by(|(_,x),(_,y)| if opts.type_ == Type::Numeric { 
+    sort(&mut key_data[0].1,opts);
+        /*.sort_by(|(_,x),(_,y)| if opts.type_ == Type::Numeric { 
                                             if opts.sort == Sort::Desc { y.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&x.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
                                             else { x.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&y.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
                                         } else {
                                             if opts.sort == Sort::Desc { y.as_str().unwrap().partial_cmp(x.as_str().unwrap()).unwrap() }
                                             else { x.as_str().unwrap().partial_cmp(y.as_str().unwrap()).unwrap() }
-                                        });
+                                        });*/
     if let Some(ref multi_key) = opts.multi_key {
-        key_data = squash(&key_data,&mut stat_data,multi_key);
+        key_data = squash(&key_data,&mut stat_data,multi_key,opts);
     }
     for value in opts.columns.iter() {
         print!("{:20}",value);
@@ -255,7 +256,7 @@ fn find_column<'l>(data: &'l Vec<(String,Vec<(usize,Value)>)>,value:&String)->Op
     None
 }
 
-fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,multi_key:&String)->Vec<(String,Vec<(usize,Value)>)> {
+fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,multi_key:&String,opts:&Options)->Vec<(String,Vec<(usize,Value)>)> {
     let mut stat_mkey_index = None;
     let mut rc:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
     for (i,(key,_)) in stat_data.iter().enumerate() {
@@ -295,13 +296,14 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
 //sum        
         let name = key_data[0].0.clone();
         rc.push((name.clone(),Vec::new()));
-        let mut ordered:Vec<(usize,usize,Value)> = Vec::new();
+        let mut ordered:Vec<(usize,Value)> = Vec::new();
         for i in &multi_keys {
                 let (index,ind) = find_element_index(key_data,i[0]);
-                ordered.push((ind,index,key_data[0].1[0].1.clone()));
+                ordered.push((index,key_data[0].1[ind].1.clone()));
                 for j in i {
                     let (_index1,ind1) = find_element_index(key_data,*j);
-                    for &mut (_,ref mut value) in stat_data.iter_mut() {
+                    for &mut (ref name,ref mut value) in stat_data.iter_mut() {
+                        println!("before");
                         let val1 = value[index].1.as_str().unwrap().parse::<i32>();
                         let val2 = key_data[0].1[ind1].1.as_str().unwrap().parse::<i32>(); 
                         let (mut val,mut vals) = (0,String::new());
@@ -315,12 +317,20 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
                             vals = value[index].1.as_str().unwrap().to_string();
                             false
                         };
+                        println!("after");
                         value[index].1 = Value::String(if flag {val.to_string()}else { vals });
+                        println!("just postpone");
+                        if name.to_lowercase() == key_data[0].0.to_lowercase() {
+                            let len = ordered.len();
+                            println!("got it?");
+                            ordered[len-1].1 = value[index].1.clone();
+                        }
+                        println!("postpone");
                     }
                 }
         }
-        ordered.sort_by(|(_,i,_),(_,j,_)|i.partial_cmp(j).unwrap());
-        for (_ind,index,value) in ordered {
+        sort(&mut ordered,opts);
+        for (index,value) in ordered {
            rc[0].1.push((index,value));
         }
     } else { rc = key_data.clone(); }
@@ -333,4 +343,13 @@ fn find_element_index(key_data:&Vec<(String,Vec<(usize,Value)>)>,i:usize) -> (us
         }
     }
     return (0,0);
+}
+fn sort(key_data:&mut Vec<(usize,Value)>,opts:&Options) {
+    key_data.sort_by(|(_,x),(_,y)| if opts.type_ == Type::Numeric { 
+                                            if opts.sort == Sort::Desc { y.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&x.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
+                                            else { x.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&y.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
+                                        } else {
+                                            if opts.sort == Sort::Desc { y.as_str().unwrap().partial_cmp(x.as_str().unwrap()).unwrap() }
+                                            else { x.as_str().unwrap().partial_cmp(y.as_str().unwrap()).unwrap() }
+                                        });
 }
