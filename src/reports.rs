@@ -13,6 +13,7 @@ fn main(){
 #[derive(Clone)]
 struct Options {
 pub key: String,
+pub multi_key: Option<String>,
 pub file: String,
 pub date: Option<String>,
 pub sort: Sort,
@@ -34,6 +35,7 @@ enum Type {
 fn options()->Options{
     let mut options = Options{ 
         key:"Confirmed".to_string(),
+        multi_key: Some("Country".to_string()),
         file:"foo.json".to_string(),
         date: None,
         sort: Sort::Desc,
@@ -71,6 +73,7 @@ fn options()->Options{
     opts.optopt("r", "results", "set number of results", "number");
     opts.optopt("", "key_value", "set particular value of key", "key value");
     opts.optopt("t", "type", "set type of key column", "numeric or string ");
+    opts.optopt("m", "multi_key", "set multi key column", "string ");
 
     opts.optflag("h", "help", "print this help menu");
 
@@ -117,8 +120,9 @@ fn options()->Options{
     if let Some(output) = matches.opt_str("r") {
         options.results = output.parse::<i32>().unwrap();
     }
-    let output = matches.opt_str("key_value");
-    options.key_value = output;
+    if let Some(output) = matches.opt_str("m") {
+        options.multi_key= Some(output);
+    }
     let output = matches.opt_str("key_value"); 
     options.key_value = output;
     if let Some(output) = matches.opt_str("t") {
@@ -173,7 +177,7 @@ fn display_stats(data:Value,opts:&Options){
                          });
         }
     }
-    for (key,column) in date_map.unwrap() {
+    for (key,column) in date_map.as_ref().unwrap() {
         if contains(&opts.columns,&key) {
             let keys:Vec<Value> = column.as_array().unwrap().iter().enumerate().
                 filter(|(i,_)|if let Some(key_index) = key_index {
@@ -183,7 +187,7 @@ fn display_stats(data:Value,opts:&Options){
                                   }).map(|(_,value)|value.clone()).collect(); 
             stat_data.push((key.clone(),keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
             if key.to_lowercase().contains(&opts.key.to_lowercase()) {
-                key_data.push((key,keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
+                key_data.push((key.to_string(),keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
             }
         }
     }
@@ -194,6 +198,9 @@ fn display_stats(data:Value,opts:&Options){
                                             if opts.sort == Sort::Desc { y.as_str().unwrap().partial_cmp(x.as_str().unwrap()).unwrap() }
                                             else { x.as_str().unwrap().partial_cmp(y.as_str().unwrap()).unwrap() }
                                         });
+    if let Some(ref multi_key) = opts.multi_key {
+        key_data = squash(&key_data,&mut stat_data,multi_key);
+    }
     for value in opts.columns.iter() {
         print!("{:20}",value);
     }
@@ -246,4 +253,84 @@ fn find_column<'l>(data: &'l Vec<(String,Vec<(usize,Value)>)>,value:&String)->Op
         }
     }
     None
+}
+
+fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,multi_key:&String)->Vec<(String,Vec<(usize,Value)>)> {
+    let mut stat_mkey_index = None;
+    let mut rc:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
+    for (i,(key,_)) in stat_data.iter().enumerate() {
+        if key.to_lowercase().contains(&multi_key.to_lowercase()) {
+            stat_mkey_index = Some(i);
+        }
+    }
+    let mut multi_keys = Vec::new();
+    if let Some(stat_mkey_index) = stat_mkey_index {
+        let mut tmp_data = stat_data[stat_mkey_index].1.clone();
+        tmp_data.sort_by(|(_,x),(_,y)|x.as_str().unwrap().partial_cmp(&y.as_str().unwrap()).unwrap());
+        let iter = &mut tmp_data.iter_mut();
+        loop {
+            if let Some((i,value)) = iter.next() {
+                multi_keys.push(Vec::new());
+                let len = multi_keys.len();
+                multi_keys[len-1].push(*i);
+                let key = value.clone();
+                let mut key = key.as_str().unwrap();
+                loop {
+                    if let Some(nvalue) = iter.next(){
+                        let nvalue1 = nvalue.1.as_str().unwrap();
+                        if nvalue1 != key {
+                            key = nvalue1;
+                            multi_keys.push(Vec::new());
+                        }
+                        let len = multi_keys.len();
+                        multi_keys[len-1].push(nvalue.0);
+                    } else {
+                        break
+                    }
+                }
+            } else { 
+                break 
+            }
+        }
+//sum        
+        let name = key_data[0].0.clone();
+        rc.push((name.clone(),Vec::new()));
+        let mut ordered:Vec<(usize,usize,Value)> = Vec::new();
+        for i in &multi_keys {
+                let (index,ind) = find_element_index(key_data,i[0]);
+                ordered.push((ind,index,key_data[0].1[0].1.clone()));
+                for j in i {
+                    let (_index1,ind1) = find_element_index(key_data,*j);
+                    for &mut (_,ref mut value) in stat_data.iter_mut() {
+                        let val1 = value[index].1.as_str().unwrap().parse::<i32>();
+                        let val2 = key_data[0].1[ind1].1.as_str().unwrap().parse::<i32>(); 
+                        let (mut val,mut vals) = (0,String::new());
+                        let flag = 
+                            if let Ok(val1) = val1 {
+                                if let Ok(val2) = val2 {
+                                val = val1+val2;
+                                true
+                            }else { false }
+                        } else { 
+                            vals = value[index].1.as_str().unwrap().to_string();
+                            false
+                        };
+                        value[index].1 = Value::String(if flag {val.to_string()}else { vals });
+                    }
+                }
+        }
+        ordered.sort_by(|(_,i,_),(_,j,_)|i.partial_cmp(j).unwrap());
+        for (_ind,index,value) in ordered {
+           rc[0].1.push((index,value));
+        }
+    } else { rc = key_data.clone(); }
+    rc
+}
+fn find_element_index(key_data:&Vec<(String,Vec<(usize,Value)>)>,i:usize) -> (usize,usize) {
+    for (ind,(index,_)) in key_data[0].1.iter().enumerate() {
+        if *index == i {
+            return (*index,ind);
+        }
+    }
+    return (0,0);
 }
