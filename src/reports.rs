@@ -303,7 +303,6 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
                 for j in i {
                     let (_index1,ind1) = find_element_index(key_data,*j);
                     for &mut (ref name,ref mut value) in stat_data.iter_mut() {
-                        println!("before");
                         let val1 = value[index].1.as_str().unwrap().parse::<i32>();
                         let val2 = key_data[0].1[ind1].1.as_str().unwrap().parse::<i32>(); 
                         let (mut val,mut vals) = (0,String::new());
@@ -317,15 +316,11 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
                             vals = value[index].1.as_str().unwrap().to_string();
                             false
                         };
-                        println!("after");
                         value[index].1 = Value::String(if flag {val.to_string()}else { vals });
-                        println!("just postpone");
                         if name.to_lowercase() == key_data[0].0.to_lowercase() {
                             let len = ordered.len();
-                            println!("got it?");
                             ordered[len-1].1 = value[index].1.clone();
                         }
-                        println!("postpone");
                     }
                 }
         }
