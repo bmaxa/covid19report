@@ -288,6 +288,7 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
                 for j in i {
                     let (index1,_ind1) = find_element_index(key_data,*j);
                     for &mut (ref name,ref mut value) in stat_data.iter_mut() {
+                        if index==index1 { continue; }
                         let val1 = value[index].1.as_str().unwrap().parse::<i32>();
                         let val2 = value[index1].1.as_str().unwrap().parse::<i32>(); 
                         let (mut val,mut vals) = (0,String::new());
