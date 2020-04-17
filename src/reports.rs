@@ -192,13 +192,6 @@ fn display_stats(data:Value,opts:&Options){
         }
     }
     sort(&mut key_data[0].1,opts);
-        /*.sort_by(|(_,x),(_,y)| if opts.type_ == Type::Numeric { 
-                                            if opts.sort == Sort::Desc { y.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&x.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
-                                            else { x.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&y.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
-                                        } else {
-                                            if opts.sort == Sort::Desc { y.as_str().unwrap().partial_cmp(x.as_str().unwrap()).unwrap() }
-                                            else { x.as_str().unwrap().partial_cmp(y.as_str().unwrap()).unwrap() }
-                                        });*/
     if let Some(ref multi_key) = opts.multi_key {
         key_data = squash(&key_data,&mut stat_data,multi_key,opts);
     }
@@ -301,10 +294,10 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
                 let (index,ind) = find_element_index(key_data,i[0]);
                 ordered.push((index,key_data[0].1[ind].1.clone()));
                 for j in i {
-                    let (_index1,ind1) = find_element_index(key_data,*j);
+                    let (index1,_ind1) = find_element_index(key_data,*j);
                     for &mut (ref name,ref mut value) in stat_data.iter_mut() {
                         let val1 = value[index].1.as_str().unwrap().parse::<i32>();
-                        let val2 = key_data[0].1[ind1].1.as_str().unwrap().parse::<i32>(); 
+                        let val2 = value[index1].1.as_str().unwrap().parse::<i32>(); 
                         let (mut val,mut vals) = (0,String::new());
                         let flag = 
                             if let Ok(val1) = val1 {
