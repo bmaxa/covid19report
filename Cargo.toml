@@ -13,6 +13,10 @@ futures = "0.3.4"
 tokio = "0.2.18"
 chrono = "0.4.11"
 headers = "0.2.1"
+getopts = "0.2"
 [[bin]]
 name = "import_data"
 path = "src/main.rs"
+[[bin]]
+name = "reports"
+path = "src/reports.rs"
