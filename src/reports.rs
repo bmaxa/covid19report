@@ -56,14 +56,6 @@ fn options()->Options{
 
 
     let mut opts = getopts::Options::new();
-    /*key: String,
-    file: String,
-    date: Option<String>,
-    sort: Sort,
-    columns: Vec<String>,
-    results: i32,
-    key_value: Option<String>,
-    type_: Type*/
 
     opts.optopt("k", "key", "set sorting key", "Column name");
     opts.optopt("f", "file", "set input file", "filename");

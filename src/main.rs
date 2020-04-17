@@ -4,7 +4,7 @@ extern crate base64;
 use serde_json::Value;
 use futures::Future;
 use std::fs::File;
-
+use std::process::exit;
 use std::io::prelude::*;
 
 
@@ -21,8 +21,19 @@ fn get_list()->impl Future<Output = std::result::Result<Vec<Value>,reqwest::Erro
         let url  = "https://api.github.com/repos/cssegisanddata/covid-19/contents/csse_covid_19_data/csse_covid_19_daily_reports".to_string();
         let body = get_response(url);
         let body = body.await;
-        let parsed:Value = serde_json::from_str(&body).unwrap();
+        let parsed:Result<Value,_> = serde_json::from_str(&body);
+        let parsed = match parsed {
+            Err(error) => { 
+                println!("probably authorization error: {}",error);
+                exit(0);
+        },
+            Ok(parsed) => parsed
+        };
         let mut rc = Vec::new();
+        if !parsed.is_array() {
+                println!("probably authorization error");
+                exit(0);
+        }
         for names in parsed.as_array().unwrap() {
             rc.push(names["name"].clone());
         }
@@ -71,7 +82,10 @@ fn parse_files(args:Vec<Value>)->impl Future<Output = std::result::Result<Value,
                         Err(e) => { println!("err: {:?} {}",e,d); }
                     }
                 },
-                Err(_) => ()
+                Err(error) => {
+                    println!("Probably auth error {}",error);
+                    exit(0);
+                }
             };
         }
         Ok(Value::Null)
@@ -86,7 +100,9 @@ async fn get_response(url:String)->String {
         let client = reqwest::Client::builder()
             .user_agent("rust")
             .build().unwrap();
-        let response =client.get(&url).send().await.unwrap();
+        let request =client.get(&url);
+        let request = build_request(request);
+        let response = request.send().await.unwrap();
         let rest = response.headers()["X-RateLimit-Remaining"].to_str().unwrap().parse::<i32>().unwrap();
         let date = chrono::NaiveDateTime::from_timestamp(response.headers()["X-RateLimit-Reset"].to_str().unwrap().parse::<i64>().unwrap(),0);
         let body = response.text().await.unwrap();
@@ -96,4 +112,58 @@ async fn get_response(url:String)->String {
         let millis = std::time::Duration::from_secs(60);
         std::thread::sleep(millis);
     }
+}
+fn build_request(request: reqwest::RequestBuilder)->reqwest::RequestBuilder {
+    let request = if let Some (username) = options().username { 
+        request.basic_auth(username,if let Some(password) = options().password {
+            Some(password) 
+        } else { 
+            None }) 
+    } else 
+    { 
+        request 
+    };
+    request
+}
+struct Options {
+    username: Option<String>,
+    password: Option<String>
+}
+fn options()->Options {
+    let mut options = Options{ 
+        password:None,
+        username: None,
+    };
+    let args = std::env::args().collect::<Vec<String>>();
+    fn print_usage(program: &str, opts:& getopts::Options) {
+
+        let brief = format!("Usage: {} [options]", program);
+        print!("{}", opts.usage(&brief));
+    }
+
+    let program = args[0].clone();
+    let mut opts = getopts::Options::new();
+
+    opts.optopt("p", "password", "set password", "password");
+    opts.optopt("u", "username", "set username", "username");
+    opts.optflag("h", "help", "this help");
+    let matches = match opts.parse(&args[1..]) {
+
+        Ok(m) => { m }
+
+        Err(f) => { panic!(f.to_string()) }
+
+    };
+    if matches.opt_present("h") {
+
+        print_usage(&program, &opts);
+        exit(0);
+    }
+    if let Some(output) = matches.opt_str("u") {
+        options.username = Some(output);
+    }
+    if let Some(output) = matches.opt_str("p") {
+        options.password= Some(output);
+    }
+    options
 }
