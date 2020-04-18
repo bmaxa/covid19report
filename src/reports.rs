@@ -334,13 +334,16 @@ fn find_diff(column: &Vec<(usize,Value)>,
         }
     }
     let mut rc = column.clone();
+    for &mut (_,ref mut value) in rc.iter_mut() {
+        *value = Value::String("---".to_string())
+    }
     for (index,index1) in relations.iter() {
         let val1 = column[*index].1.as_str().unwrap().parse::<i32>();
         let val2 = diff_column[*index1].1.as_str().unwrap().parse::<i32>();
         let res = if let Ok(val1) = val1 {
             Value::String((val1 - val2.unwrap()).to_string())
         }else {
-            column[*index].1.clone()
+            Value::String("---".to_string())
         };
         rc[*index] = (*index,res);
     }
