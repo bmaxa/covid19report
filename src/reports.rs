@@ -14,8 +14,10 @@ fn main(){
 struct Options {
 pub key: String,
 pub multi_key: Option<String>,
+pub foreign_key: String,
 pub file: String,
 pub date: Option<String>,
+pub diff_date: Option<String>,
 pub sort: Sort,
 pub columns: Vec<String>,
 pub results: i32,
@@ -36,8 +38,10 @@ fn options()->Options{
     let mut options = Options{ 
         key:"Confirmed".to_string(),
         multi_key: Some("Country".to_string()),
+        foreign_key:"Country".to_string(),
         file:"foo.json".to_string(),
         date: None,
+        diff_date:None,
         sort: Sort::Desc,
         columns: vec!["COUNTRY".to_string(),"CONFIRMED".to_string(),"DEATHS".to_string(),"RECOVERED".to_string(),"ACTIVE".to_string()],
         results: 5,
@@ -66,6 +70,7 @@ fn options()->Options{
     opts.optopt("", "key_value", "set particular value of key", "key value");
     opts.optopt("t", "type", "set type of key column", "numeric or string ");
     opts.optopt("m", "multi_key", "set multi key column", "string ");
+    opts.optopt("", "diff", "set diff date", "mm-dd-yy");
 
     opts.optflag("h", "help", "print this help menu");
 
@@ -91,6 +96,8 @@ fn options()->Options{
     }
     let output = matches.opt_str("d");
     options.date = output;
+    let output = matches.opt_str("diff");
+    options.diff_date = output;
     if let Some(output) = matches.opt_str("s") {
         options.sort= if output.to_lowercase() == "asc" {
             Sort::Asc
@@ -124,10 +131,7 @@ fn options()->Options{
             Type::String
         }
     }
-
     options
-
-
 }
 
 fn display_stats(data:Value,opts:&Options){
@@ -137,17 +141,27 @@ fn display_stats(data:Value,opts:&Options){
     } else {
         last_date(map)
     };
+    let diff_date_map = if let Some(ref date) = opts.diff_date {
+        find_date(map,date)
+    } else { None };
+
     if let None = date_map {
         println!("expected date {:?} not found",opts.date);
         return;
     }
     let mut stat_data = Vec::new();
+    let mut diff_stat_data = Vec::new();
     let mut key_data:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
+    let mut foreign_key_data:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
+    let mut diff_key_data:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
+    let mut diff_foreign_key_data:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
 
     let mut key_index = None;
+    let mut diff_key_index = None;
+    let find_key_index = |date_map:&Option<serde_json::Map<String,Value>>,key_index:&mut Option<usize>| {
     for (key,column) in  date_map.as_ref().unwrap(){
         if key.to_lowercase().contains(&opts.key.to_lowercase()) {
-        key_index = column.as_array().unwrap().iter().enumerate().
+        *key_index = column.as_array().unwrap().iter().enumerate().
                      fold(None,|v,(i,value)| 
                       if let Some(ref key_value) = opts.key_value {
                         if value.as_str().unwrap().to_lowercase() == key_value.to_lowercase() {
@@ -169,7 +183,14 @@ fn display_stats(data:Value,opts:&Options){
                          });
         }
     }
-    for (key,column) in date_map.as_ref().unwrap() {
+    };
+    let gather = |date_map:&Option<serde_json::Map<String,Value>>,
+                  stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,
+                  key_data:&mut Vec<(String,Vec<(usize,Value)>)>,
+                  foreign_key_data:&mut Vec<(String,Vec<(usize,Value)>)>,
+                  key_index:Option<usize>| 
+    {   
+        for (key,column) in date_map.as_ref().unwrap() {
         if contains(&opts.columns,&key) {
             let keys:Vec<Value> = column.as_array().unwrap().iter().enumerate().
                 filter(|(i,_)|if let Some(key_index) = key_index {
@@ -181,27 +202,72 @@ fn display_stats(data:Value,opts:&Options){
             if key.to_lowercase().contains(&opts.key.to_lowercase()) {
                 key_data.push((key.to_string(),keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
             }
+            if key.to_lowercase().contains(&opts.foreign_key.to_lowercase()) {
+                foreign_key_data.push((key.to_string(),keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
+            }
         }
     }
+    };
+    if let Some(date) = &opts.diff_date {
+        if let Some(_) = &diff_date_map {
+            find_key_index(&diff_date_map,&mut diff_key_index);
+            gather(&diff_date_map,&mut diff_stat_data,&mut diff_key_data,&mut diff_foreign_key_data,diff_key_index);
+        } else {
+            println!("date does not exists {}",date);
+            return;
+        }
+    }
+    find_key_index(&date_map,&mut key_index);
+    gather(&date_map,&mut stat_data,&mut key_data,&mut foreign_key_data,key_index);
     if key_data.len() == 0 { 
         println!{"key_data is empty, probably invalid key..."};
         return; 
     }
-
     sort(&mut key_data[0].1,opts);
     if let Some(ref multi_key) = opts.multi_key {
-        key_data = squash(&key_data,&mut stat_data,multi_key,opts);
+        let mut foreign_stat_data = stat_data.clone();
+        key_data = squash(&key_data,&mut stat_data,multi_key,opts,true); 
+        foreign_key_data = squash(&foreign_key_data,&mut foreign_stat_data,multi_key,opts,false); // don't sort
+    }
+    if let Some(ref multi_key) = opts.multi_key {
+        if let Some(_) = &opts.diff_date {
+            let mut foreign_diff_stat_data = diff_stat_data.clone();
+            diff_key_data = squash(&diff_key_data,&mut diff_stat_data,multi_key,opts,false);
+            diff_foreign_key_data = squash(&diff_foreign_key_data,&mut foreign_diff_stat_data,multi_key,opts,false);
+        }
+    }
+    let stats = |stat_data:&Vec<(String,Vec<(usize,Value)>)>,key_data:&Vec<(String,Vec<(usize,Value)>)>| {
+    if let Some(_date) = &opts.diff_date {
+        println!("from {}",_date);
     }
     for value in opts.columns.iter() {
         print!("{:20}",value);
+        if let Some(_date) = &opts.diff_date {
+            print!("{:20}","diff");
+        }
     }
     println!("");
     let mut counter = opts.results;
     for (key_index,_) in key_data[0].1.iter() {
-        let mut row = Vec::new();
+        let mut row:Vec<String> = Vec::new();
         for value in &opts.columns {
             if let Some(column) = find_column(&stat_data,value) {
-                row.push(column[*key_index].1.as_str().unwrap());
+                if let Some(_date) = &opts.diff_date {
+                    if let Some(diff_column) = find_column(&diff_stat_data,value) {
+                        let diff_row = find_diff(column,diff_column,&foreign_key_data,&diff_foreign_key_data);
+                        if let Some(diff_row) = diff_row {
+                            let diff_row = diff_row[*key_index].1.clone();
+                            row.push(column[*key_index].1.as_str().unwrap().to_string());
+                            row.push(diff_row.as_str().unwrap().to_string());
+                        } else {
+                            row.push(column[*key_index].1.as_str().unwrap().to_string());
+                        }
+                    } else {
+                        row.push(column[*key_index].1.as_str().unwrap().to_string());
+                    }
+                }else {
+                    row.push(column[*key_index].1.as_str().unwrap().to_string());
+                }
             }
         }
         for value in row {
@@ -211,6 +277,8 @@ fn display_stats(data:Value,opts:&Options){
         counter -= 1;
         if counter <= 0 { break }
     }
+    };
+    stats(&stat_data,&key_data);
 }
 
 fn last_date(map:& serde_json::Map<String,Value>)->Option<serde_json::Map<String,Value>>{
@@ -245,8 +313,46 @@ fn find_column<'l>(data: &'l Vec<(String,Vec<(usize,Value)>)>,value:&String)->Op
     }
     None
 }
+fn find_diff(column: &Vec<(usize,Value)>,
+    diff_column: &Vec<(usize,Value)>,
+    foreign_key_data: & Vec<(String,Vec<(usize,Value)>)>,
+    diff_foreign_key_data: & Vec<(String,Vec<(usize,Value)>)>,
+    )->Option<Vec<(usize,Value)>> {
+    let mut relations = Vec::new();
+    if diff_foreign_key_data.len() == 0{ return None }
+    for (name,val) in foreign_key_data.iter() {
+        for (name1,val1) in diff_foreign_key_data.iter() {
+            if name == name1{
+               for (index,value) in val.iter() {
+                   for (index1,value1) in val1.iter() {
+                       if value == value1 {
+                           relations.push((*index,*index1));
+                       }
+                   }
+               }
+            }
+        }
+    }
+    let mut rc = column.clone();
+    for (index,index1) in relations.iter() {
+        let val1 = column[*index].1.as_str().unwrap().parse::<i32>();
+        let val2 = diff_column[*index1].1.as_str().unwrap().parse::<i32>();
+        let res = if let Ok(val1) = val1 {
+            Value::String((val1 - val2.unwrap()).to_string())
+        }else {
+            column[*index].1.clone()
+        };
+        rc[*index] = (*index,res);
+    }
+    if rc.len() != 0 {
+        Some(rc)
+    } else { None }
+}
 
-fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,multi_key:&String,opts:&Options)->Vec<(String,Vec<(usize,Value)>)> {
+fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,
+          stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,
+          multi_key:&String,opts:&Options,
+          fsort:bool)->Vec<(String,Vec<(usize,Value)>)> {
     let mut stat_mkey_index = None;
     let mut rc:Vec<(String,Vec<(usize,Value)>)> = Vec::new();
     for (i,(key,_)) in stat_data.iter().enumerate() {
@@ -315,7 +421,7 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,stat_data:&mut Vec<(String,
                     }
                 }
         }
-        sort(&mut ordered,opts);
+        if fsort { sort(&mut ordered,opts); }
         for (index,value) in ordered {
            rc[0].1.push((index,value));
         }
