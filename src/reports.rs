@@ -341,7 +341,9 @@ fn find_diff(column: &Vec<(usize,Value)>,
         let val1 = column[*index].1.as_str().unwrap().parse::<i32>();
         let val2 = diff_column[*index1].1.as_str().unwrap().parse::<i32>();
         let res = if let Ok(val1) = val1 {
-            Value::String((val1 - val2.unwrap()).to_string())
+            let tmp1 = val1-val2.unwrap();
+            let tmp2 = tmp1 as f32 / val1 as f32 * 100.0;
+            Value::String(format!("{:10} {:5.2}%",tmp1,tmp2))
         }else {
             Value::String("---".to_string())
         };
