@@ -183,6 +183,11 @@ fn display_stats(data:Value,opts:&Options){
             }
         }
     }
+    if key_data.len() == 0 { 
+        println!{"key_data is empty, probably invalid key..."};
+        return; 
+    }
+
     sort(&mut key_data[0].1,opts);
     if let Some(ref multi_key) = opts.multi_key {
         key_data = squash(&key_data,&mut stat_data,multi_key,opts);
