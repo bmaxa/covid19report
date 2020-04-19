@@ -108,13 +108,21 @@ fn options()->Options{
     if let Some(output) = matches.opt_str("c") {
         options.columns = output.split(',').map(|x|x.to_string()).collect();
         let mut found = false;
+        let mut found1 = false;
         for i in options.columns.iter() {
             if i.to_lowercase().contains(&options.key.to_lowercase()) {
                 found = true;
                 break;
             }
         }
+        for i in options.columns.iter() {
+            if i.to_lowercase().contains(&options.foreign_key.to_lowercase()) {
+                found1 = true;
+                break;
+            }
+        }
         if !found { options.columns.push(options.key.clone()); }
+        if !found1 { options.columns.push(options.foreign_key.clone()); }
     }
     if let Some(output) = matches.opt_str("r") {
         options.results = output.parse::<i32>().unwrap();
@@ -232,7 +240,7 @@ fn display_stats(data:Value,opts:&Options){
     if let Some(ref multi_key) = opts.multi_key {
         if let Some(_) = &opts.diff_date {
             let mut foreign_diff_stat_data = diff_stat_data.clone();
-            diff_key_data = squash(&diff_key_data,&mut diff_stat_data,multi_key,opts,false);
+            diff_key_data = squash(&diff_key_data,&mut diff_stat_data,multi_key,opts,true);
             diff_foreign_key_data = squash(&diff_foreign_key_data,&mut foreign_diff_stat_data,multi_key,opts,false);
         }
     }
