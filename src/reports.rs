@@ -22,7 +22,9 @@ pub sort: Sort,
 pub columns: Vec<String>,
 pub results: i32,
 pub key_value: Option<String>,
-pub type_: Type
+pub type_: Type,
+pub lc: bool
+
 }
 #[derive(Clone,PartialEq)]
 enum Sort {
@@ -46,7 +48,8 @@ fn options()->Options{
         columns: vec!["COUNTRY".to_string(),"CONFIRMED".to_string(),"DEATHS".to_string(),"RECOVERED".to_string(),"ACTIVE".to_string()],
         results: 5,
         key_value: None,
-        type_: Type::Numeric
+        type_: Type::Numeric,
+        lc: false
     };
     let args = std::env::args().collect::<Vec<String>>();
     fn print_usage(program: &str, opts:& getopts::Options) {
@@ -71,6 +74,7 @@ fn options()->Options{
     opts.optopt("t", "type", "set type of key column", "numeric or string ");
     opts.optopt("m", "multi_key", "set multi key column", "string ");
     opts.optopt("", "diff", "set diff date", "mm-dd-yy");
+    opts.optflag("l", "list_columns", "list columns");
 
     opts.optflag("h", "help", "print this help menu");
 
@@ -81,6 +85,8 @@ fn options()->Options{
         Err(f) => { panic!(f.to_string()) }
 
     };
+
+    options.lc  =  matches.opt_present("l");
 
     if matches.opt_present("h") {
 
@@ -149,6 +155,12 @@ fn display_stats(data:Value,opts:&Options){
     } else {
         last_date(map)
     };
+    if opts.lc {
+        for i in date_map.unwrap().keys() {
+            println!("{}",i);
+        }
+        return
+    }
     let diff_date_map = if let Some(ref date) = opts.diff_date {
         find_date(map,date)
     } else { None };
