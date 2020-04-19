@@ -75,7 +75,7 @@ fn options()->Options{
     opts.optopt("m", "multi_key", "set multi key column", "string ");
     opts.optopt("", "diff", "set diff date", "mm-dd-yy");
     opts.optflag("l", "list_columns", "list columns");
-
+    opts.optflag("", "no_multi_key", "does not accumulate on multi_key");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
@@ -135,6 +135,9 @@ fn options()->Options{
     }
     if let Some(output) = matches.opt_str("m") {
         options.multi_key= Some(output);
+    }
+    if matches.opt_present("no_multi_key"){
+        options.multi_key = None;
     }
     let output = matches.opt_str("key_value"); 
     options.key_value = output;
