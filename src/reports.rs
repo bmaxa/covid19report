@@ -4,7 +4,10 @@ use std::io::Read;
 use std::process::exit;
 fn main(){
     let opts = options();
-    let mut f = File::open(opts.file.as_str()).unwrap();
+    let mut f = match File::open(opts.file.as_str()) {
+        Ok(f) => f,
+        Err(e) => { println!("File {} {}",opts.file,e);return }
+    };
     let mut buf = String::new();
     let _ = f.read_to_string(&mut buf);
     let data:Value = serde_json::from_str(&buf).unwrap();
