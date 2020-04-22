@@ -131,7 +131,8 @@ fn options()->Options{
             }
         }
         if !found { options.columns.push(options.key.clone()); }
-        if !found1 { options.columns.push(options.foreign_key.clone()); }
+        if !options.key.to_lowercase().contains(&options.foreign_key.to_lowercase()) && 
+           !found1 { options.columns.push(options.foreign_key.clone()); }
     }
     if let Some(output) = matches.opt_str("r") {
         options.results = output.parse::<i32>().unwrap();
