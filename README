@@ -1,0 +1,8 @@
+Covid reports sorted from John Hopkins,
+all commands have --help
+./target/release/import_data -u githubuser -p githubpass
+or just unzip foo.zip as I import daily...
+./target/release/reports for default report
+or --help for parameters.
+
+build like any usual Rust program: cargo build --release
