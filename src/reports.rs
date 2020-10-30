@@ -367,8 +367,8 @@ fn find_diff(column: &Vec<(usize,Value)>,
     for (index,index1) in relations.iter() {
         let val1 = column[*index].1.as_str().unwrap().parse::<i32>();
         let val2 = diff_column[*index1].1.as_str().unwrap().parse::<i32>();
-        let res = if let Ok(val1) = val1 {
-            let tmp1 = val1-val2.unwrap();
+        let res = if let (Ok(val1),Ok(val2)) = (val1,val2) {
+            let tmp1 = val1 - val2;
             let tmp2 = tmp1 as f32 / val1 as f32 * 100.0;
             Value::String(format!("{:5} {:5.2}%",tmp1,tmp2))
         }else {
