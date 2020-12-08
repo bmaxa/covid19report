@@ -34,8 +34,22 @@ fn get_list()->impl Future<Output = std::result::Result<Vec<Value>,reqwest::Erro
                 println!("probably authorization error");
                 exit(0);
         }
+        let mut flag = false;
         for names in parsed.as_array().unwrap() {
-            rc.push(names["name"].clone());
+            if !flag {
+                if let Some(date) = options().date {
+                    if let Some(_) = names["name"].as_str().unwrap().find(&date){
+                        rc.push(names["name"].clone());
+                        flag = true;
+                        println!("found date {} {}",date,names["name"]);
+                    }
+                } else {
+                    rc.push(names["name"].clone());
+                }
+            }
+            else {
+                rc.push(names["name"].clone());
+            }
         }
         Ok(rc)
     }
@@ -127,12 +141,14 @@ fn build_request(request: reqwest::RequestBuilder)->reqwest::RequestBuilder {
 }
 struct Options {
     username: Option<String>,
-    password: Option<String>
+    password: Option<String>,
+    date: Option<String>
 }
 fn options()->Options {
     let mut options = Options{ 
         password:None,
         username: None,
+        date:None
     };
     let args = std::env::args().collect::<Vec<String>>();
     fn print_usage(program: &str, opts:& getopts::Options) {
@@ -146,6 +162,7 @@ fn options()->Options {
 
     opts.optopt("p", "password", "set password", "password");
     opts.optopt("u", "username", "set username", "username");
+    opts.optopt("d", "date", "set date", "m-d-y");
     opts.optflag("h", "help", "this help");
     let matches = match opts.parse(&args[1..]) {
 
@@ -164,6 +181,9 @@ fn options()->Options {
     }
     if let Some(output) = matches.opt_str("p") {
         options.password= Some(output);
+    }
+    if let Some(output) = matches.opt_str("d") {
+        options.date= Some(output);
     }
     options
 }
