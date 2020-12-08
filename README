@@ -5,4 +5,9 @@ or just unzip foo.zip as I import daily...
 ./target/release/reports for default report
 or --help for parameters.
 
+* added --date since 
+to import 
+From now on I will import just last month as this is getting big
+and github no longer accepts basic authentication.
+
 build like any usual Rust program: cargo build --release
