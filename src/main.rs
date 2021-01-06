@@ -5,6 +5,7 @@ use serde_json::Value;
 use futures::Future;
 use std::fs::File;
 use std::process::exit;
+use std::cmp::Ordering;
 use std::io::prelude::*;
 
 
@@ -16,7 +17,7 @@ fn main() {
     let _ = r.block_on(future);
 }
 
-fn get_list()->impl Future<Output = std::result::Result<Vec<Value>,reqwest::Error>> {
+fn get_list()->impl Future<Output = std::result::Result<Vec<String>,reqwest::Error>> {
     async {
         let url  = "https://api.github.com/repos/cssegisanddata/covid-19/contents/csse_covid_19_data/csse_covid_19_daily_reports".to_string();
         let body = get_response(url);
@@ -35,31 +36,50 @@ fn get_list()->impl Future<Output = std::result::Result<Vec<Value>,reqwest::Erro
                 exit(0);
         }
         let mut flag = false;
-        for names in parsed.as_array().unwrap() {
-            if !flag {
-                if let Some(date) = options().date {
-                    if let Some(_) = names["name"].as_str().unwrap().find(&date){
-                        rc.push(names["name"].clone());
-                        flag = true;
-                        println!("found date {} {}",date,names["name"]);
+        let mut dates:Vec<_> = parsed.as_array().unwrap().iter().map(|v|v["name"].as_str()).collect();
+        dates.sort_by(|a,b|{
+                let a = a.unwrap();
+                let b = b.unwrap();
+                if let Some(_) = a.find("2021"){
+                    if let Some(_) = b.find("2020") {
+                        return Ordering::Greater;
+                    } else {
+                        return a.partial_cmp(b).unwrap();
                     }
                 } else {
-                    rc.push(names["name"].clone());
+                   if let Some(_) = b.find("2021"){
+                        return Ordering::Less;
+                   } else {
+                      return a.partial_cmp(b).unwrap();
+                   }
+                }
+        });
+        for idate in dates {
+            let idate = idate.unwrap().to_string();
+            if !flag {
+                if let Some(date) = options().date {
+                    println!("date {}",idate);
+                    if let Some(_) = idate.find(&date){
+                        rc.push(idate);
+                        flag = true;
+                    }
+                } else {
+                    rc.push(idate);
                 }
             }
             else {
-                rc.push(names["name"].clone());
+                rc.push(idate);
             }
         }
         Ok(rc)
     }
 }
 
-fn parse_files(args:Vec<Value>)->impl Future<Output = std::result::Result<Value,reqwest::Error>> {
+fn parse_files(args:Vec<String>)->impl Future<Output = std::result::Result<Value,reqwest::Error>> {
     async {
         let mut map = serde_json::Map::new();
         for name in args {
-            let url ="https://api.github.com/repos/cssegisanddata/covid-19/contents/csse_covid_19_data/csse_covid_19_daily_reports".to_string() + "/" + name.as_str().unwrap();
+            let url ="https://api.github.com/repos/cssegisanddata/covid-19/contents/csse_covid_19_data/csse_covid_19_daily_reports".to_string() + "/" + &name;
             let body = get_response(url);
             let body = body.await;
             match serde_json::from_str(&body) {
