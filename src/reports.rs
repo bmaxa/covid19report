@@ -40,7 +40,7 @@ enum Type {
     String
 }
 fn options()->Options{
-    let mut options = Options{ 
+    let mut options = Options{
         key:"Confirmed".to_string(),
         multi_key: Some("Country".to_string()),
         foreign_key:"Country".to_string(),
@@ -85,7 +85,7 @@ fn options()->Options{
 
         Ok(m) => { m }
 
-        Err(f) => { panic!(f.to_string()) }
+        Err(f) => { panic!("{}",f.to_string()) }
 
     };
 
@@ -131,7 +131,7 @@ fn options()->Options{
             }
         }
         if !found { options.columns.push(options.key.clone()); }
-        if !options.key.to_lowercase().contains(&options.foreign_key.to_lowercase()) && 
+        if !options.key.to_lowercase().contains(&options.foreign_key.to_lowercase()) &&
            !found1 { options.columns.push(options.foreign_key.clone()); }
     }
     if let Some(output) = matches.opt_str("r") {
@@ -143,7 +143,7 @@ fn options()->Options{
     if matches.opt_present("no_multi_key"){
         options.multi_key = None;
     }
-    let output = matches.opt_str("key_value"); 
+    let output = matches.opt_str("key_value");
     options.key_value = output;
     if let Some(output) = matches.opt_str("t") {
         options.type_ = if output.to_lowercase() == "numeric" {
@@ -189,7 +189,7 @@ fn display_stats(data:Value,opts:&Options){
     for (key,column) in  date_map.as_ref().unwrap(){
         if key.to_lowercase().contains(&opts.key.to_lowercase()) {
         *key_index = column.as_array().unwrap().iter().enumerate().
-                     fold(None,|v,(i,value)| 
+                     fold(None,|v,(i,value)|
                       if let Some(ref key_value) = opts.key_value {
                         if value.as_str().unwrap().to_lowercase() == key_value.to_lowercase() {
                                 if v != None {
@@ -215,8 +215,8 @@ fn display_stats(data:Value,opts:&Options){
                   stat_data:&mut Vec<(String,Vec<(usize,Value)>)>,
                   key_data:&mut Vec<(String,Vec<(usize,Value)>)>,
                   foreign_key_data:&mut Vec<(String,Vec<(usize,Value)>)>,
-                  key_index:Option<usize>| 
-    {   
+                  key_index:Option<usize>|
+    {
         for (key,column) in date_map.as_ref().unwrap() {
         if contains(&opts.columns,&key) {
             let keys:Vec<Value> = column.as_array().unwrap().iter().enumerate().
@@ -224,7 +224,7 @@ fn display_stats(data:Value,opts:&Options){
                                     *i==key_index
                                   }else {
                                     true
-                                  }).map(|(_,value)|value.clone()).collect(); 
+                                  }).map(|(_,value)|value.clone()).collect();
             stat_data.push((key.clone(),keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
             if key.to_lowercase().contains(&opts.key.to_lowercase()) {
                 key_data.push((key.to_string(),keys.iter().enumerate().map(|(i,x)|(i,x.clone())).collect()));
@@ -246,20 +246,20 @@ fn display_stats(data:Value,opts:&Options){
     }
     find_key_index(&date_map,&mut key_index);
     gather(&date_map,&mut stat_data,&mut key_data,&mut foreign_key_data,key_index);
-    if key_data.len() == 0 { 
+    if key_data.len() == 0 {
         println!{"key_data is empty, probably invalid key..."};
-        return; 
+        return;
     }
     sort(&mut key_data[0].1,opts);
     if let Some(ref multi_key) = opts.multi_key {
         let mut foreign_stat_data = stat_data.clone();
-        key_data = squash(&key_data,&mut stat_data,multi_key,opts,true); 
+        key_data = squash(&key_data,&mut stat_data,multi_key,opts,true);
         foreign_key_data = squash(&foreign_key_data,&mut foreign_stat_data,multi_key,opts,false); // don't sort
     }
     if let Some(ref multi_key) = opts.multi_key {
         if let Some(_) = &opts.diff_date {
             let mut foreign_diff_stat_data = diff_stat_data.clone();
-            diff_key_data = squash(&diff_key_data,&mut diff_stat_data,multi_key,opts,true);
+            let _diff_key_data = squash(&diff_key_data,&mut diff_stat_data,multi_key,opts,true);
             diff_foreign_key_data = squash(&diff_foreign_key_data,&mut foreign_diff_stat_data,multi_key,opts,false);
         }
     }
@@ -417,11 +417,11 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,
                         break
                     }
                 }
-            } else { 
-                break 
+            } else {
+                break
             }
         }
-//sum        
+//sum
         let name = key_data[0].0.clone();
         rc.push((name.clone(),Vec::new()));
         let mut ordered:Vec<(usize,Value)> = Vec::new();
@@ -433,15 +433,15 @@ fn squash(key_data:&Vec<(String,Vec<(usize,Value)>)>,
                     for &mut (ref name,ref mut value) in stat_data.iter_mut() {
                         if index==index1 { continue; }
                         let val1 = value[index].1.as_str().unwrap().parse::<i32>();
-                        let val2 = value[index1].1.as_str().unwrap().parse::<i32>(); 
+                        let val2 = value[index1].1.as_str().unwrap().parse::<i32>();
                         let (mut val,mut vals) = (0,String::new());
-                        let flag = 
+                        let flag =
                             if let Ok(val1) = val1 {
                                 if let Ok(val2) = val2 {
                                 val = val1+val2;
                                 true
                             }else { false }
-                        } else { 
+                        } else {
                             vals = value[index].1.as_str().unwrap().to_string();
                             false
                         };
@@ -469,7 +469,7 @@ fn find_element_index(key_data:&Vec<(String,Vec<(usize,Value)>)>,i:usize) -> (us
     return (0,0);
 }
 fn sort(key_data:&mut Vec<(usize,Value)>,opts:&Options) {
-    key_data.sort_by(|(_,x),(_,y)| if opts.type_ == Type::Numeric { 
+    key_data.sort_by(|(_,x),(_,y)| if opts.type_ == Type::Numeric {
                                             if opts.sort == Sort::Desc { y.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&x.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
                                             else { x.as_str().unwrap().parse::<i32>().unwrap().partial_cmp(&y.as_str().unwrap().parse::<i32>().unwrap()).unwrap() }
                                         } else {

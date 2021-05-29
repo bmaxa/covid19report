@@ -24,7 +24,7 @@ fn get_list()->impl Future<Output = std::result::Result<Vec<String>,reqwest::Err
         let body = body.await;
         let parsed:Result<Value,_> = serde_json::from_str(&body);
         let parsed = match parsed {
-            Err(error) => { 
+            Err(error) => {
                 println!("probably authorization error: {}",error);
                 exit(0);
         },
@@ -87,11 +87,11 @@ fn parse_files(args:Vec<String>)->impl Future<Output = std::result::Result<Value
                     let a:Value = body;
                     let d = a["name"].as_str().unwrap().split('.').collect::<Vec<_>>()[0];
                     match chrono::NaiveDate::parse_from_str(d,"%m-%d-%Y"){
-                        Ok(dt)=> 
-                        { 
-                            println!("{:?}",dt); 
+                        Ok(dt)=>
+                        {
+                            println!("{:?}",dt);
                             let cnt = a["content"].as_str();
-                            let cnt = vec2string(cnt.unwrap().chars().filter(|x| *x!='\n' && *x != '\r').map(|x|x as u8).collect::<Vec<_>>()); 
+                            let cnt = vec2string(cnt.unwrap().chars().filter(|x| *x!='\n' && *x != '\r').map(|x|x as u8).collect::<Vec<_>>());
                             println!("{}",cnt);
                             let s =vec2string(base64::decode(cnt).unwrap());
                             let mut rdr = csv::ReaderBuilder::new().from_reader(s.as_bytes());
@@ -148,14 +148,14 @@ async fn get_response(url:String)->String {
     }
 }
 fn build_request(request: reqwest::RequestBuilder)->reqwest::RequestBuilder {
-    let request = if let Some (username) = options().username { 
+    let request = if let Some (username) = options().username {
         request.basic_auth(username,if let Some(password) = options().password {
-            Some(password) 
-        } else { 
-            None }) 
-    } else 
-    { 
-        request 
+            Some(password)
+        } else {
+            None })
+    } else
+    {
+        request
     };
     request
 }
@@ -165,7 +165,7 @@ struct Options {
     date: Option<String>
 }
 fn options()->Options {
-    let mut options = Options{ 
+    let mut options = Options{
         password:None,
         username: None,
         date:None
@@ -188,7 +188,7 @@ fn options()->Options {
 
         Ok(m) => { m }
 
-        Err(f) => { panic!(f.to_string()) }
+        Err(f) => { panic!("{}",f.to_string()) }
 
     };
     if matches.opt_present("h") {
